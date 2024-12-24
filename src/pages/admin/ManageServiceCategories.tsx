@@ -12,8 +12,6 @@ const ManageServiceCategories = () => {
 	const [categories, setCategories] = useState<ServiceCategory[]>([]);
 	const [loading, setLoading] = useState<boolean>(false);
 	const [error, setError] = useState<string>("");
-
-	// State for handling the edit modal
 	const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
 	const [currentCategory, setCurrentCategory] =
 		useState<ServiceCategory | null>(null);
@@ -22,24 +20,24 @@ const ManageServiceCategories = () => {
 		name: "",
 		description: "",
 	});
-
-	// State for handling the add modal
 	const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
 	const [addFormData, setAddFormData] = useState<Omit<ServiceCategory, "id">>({
 		name: "",
 		description: "",
 	});
-
-	// State for pagination and search
 	const [currentPage, setCurrentPage] = useState<number>(1);
 	const [searchTerm, setSearchTerm] = useState<string>("");
+	const [sortColumn, setSortColumn] = useState<keyof ServiceCategory | null>(
+		null,
+	);
+	const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
 	const ITEMS_PER_PAGE = 10;
 
 	const fetchCategories = async () => {
 		setLoading(true);
 		try {
-			const response = await axiosInstance.get("/api/service-categories"); // Ensure the correct endpoint
+			const response = await axiosInstance.get("/api/service-categories");
 			setCategories(response.data);
 			setError("");
 		} catch (err) {
@@ -87,7 +85,7 @@ const ManageServiceCategories = () => {
 			await axiosInstance.put(
 				`/api/service-categories/${editFormData.id}`,
 				editFormData,
-			); // Ensure the correct endpoint
+			);
 			toast.success(
 				`Service Category "${editFormData.name}" updated successfully.`,
 			);
@@ -103,7 +101,6 @@ const ManageServiceCategories = () => {
 		}
 	};
 
-	// Handlers for Add New Category
 	const openAddModal = () => {
 		setIsAddModalOpen(true);
 	};
@@ -144,14 +141,32 @@ const ManageServiceCategories = () => {
 		}
 	};
 
-	// Handlers for Search
 	const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		setSearchTerm(e.target.value);
 		setCurrentPage(1); // Reset to first page on new search
 	};
 
-	// Filtered and Paginated Categories
-	const filteredCategories = categories.filter((category) =>
+	const handleSort = (column: keyof ServiceCategory) => {
+		if (sortColumn === column) {
+			// Toggle sort direction
+			setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+		} else {
+			setSortColumn(column);
+			setSortDirection("asc");
+		}
+	};
+
+	const sortedCategories = [...categories].sort((a, b) => {
+		if (!sortColumn) return 0;
+		const aValue = a[sortColumn];
+		const bValue = b[sortColumn];
+
+		if (aValue < bValue) return sortDirection === "asc" ? -1 : 1;
+		if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;
+		return 0;
+	});
+
+	const filteredCategories = sortedCategories.filter((category) =>
 		category.name.toLowerCase().includes(searchTerm.toLowerCase()),
 	);
 
@@ -174,6 +189,13 @@ const ManageServiceCategories = () => {
 	if (error) {
 		return <div className="text-center text-red-500 mt-8">{error}</div>;
 	}
+
+	const getSortIndicator = (column: keyof ServiceCategory) => {
+		if (sortColumn === column) {
+			return sortDirection === "asc" ? " ▲" : " ▼";
+		}
+		return "";
+	};
 
 	return (
 		<div>
@@ -201,9 +223,21 @@ const ManageServiceCategories = () => {
 				<table className="min-w-full bg-white shadow-md rounded-lg overflow-hidden">
 					<thead className="bg-primary text-white">
 						<tr>
-							<th className="py-3 px-6 text-left">ID</th>
-							<th className="py-3 px-6 text-left">Name</th>
-							<th className="py-3 px-6 text-left">Description</th>
+							<th
+								className="py-3 px-6 text-left cursor-pointer"
+								onClick={() => handleSort("id")}>
+								ID{getSortIndicator("id")}
+							</th>
+							<th
+								className="py-3 px-6 text-left cursor-pointer"
+								onClick={() => handleSort("name")}>
+								Name{getSortIndicator("name")}
+							</th>
+							<th
+								className="py-3 px-6 text-left cursor-pointer"
+								onClick={() => handleSort("description")}>
+								Description{getSortIndicator("description")}
+							</th>
 							<th className="py-3 px-6 text-left">Actions</th>
 						</tr>
 					</thead>

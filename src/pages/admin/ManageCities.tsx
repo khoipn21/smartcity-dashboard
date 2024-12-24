@@ -13,8 +13,6 @@ const ManageCities = () => {
 	const [cities, setCities] = useState<City[]>([]);
 	const [loading, setLoading] = useState<boolean>(false);
 	const [error, setError] = useState<string>("");
-
-	// State for handling the edit modal
 	const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
 	const [currentCity, setCurrentCity] = useState<City | null>(null);
 	const [editFormData, setEditFormData] = useState<City>({
@@ -23,25 +21,23 @@ const ManageCities = () => {
 		country: "",
 		description: "",
 	});
-
-	// State for handling the add modal
 	const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
 	const [addFormData, setAddFormData] = useState<Omit<City, "id">>({
 		name: "",
 		country: "",
 		description: "",
 	});
-
-	// State for pagination and search
 	const [currentPage, setCurrentPage] = useState<number>(1);
 	const [searchTerm, setSearchTerm] = useState<string>("");
+	const [sortColumn, setSortColumn] = useState<keyof City | null>(null);
+	const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
 	const ITEMS_PER_PAGE = 10;
 
 	const fetchCities = async () => {
 		setLoading(true);
 		try {
-			const response = await axiosInstance.get("/api/cities"); // Ensure the correct endpoint
+			const response = await axiosInstance.get("/api/cities");
 			setCities(response.data);
 			setError("");
 		} catch (err) {
@@ -101,7 +97,6 @@ const ManageCities = () => {
 		}
 	};
 
-	// Handlers for Add New City
 	const openAddModal = () => {
 		setIsAddModalOpen(true);
 	};
@@ -138,16 +133,33 @@ const ManageCities = () => {
 		}
 	};
 
-	// Handlers for Search
 	const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		setSearchTerm(e.target.value);
 		setCurrentPage(1); // Reset to first page on new search
 	};
 
-	// Filtered and Paginated Cities
-	const filteredCities = cities.filter(
-		(city) =>
-			city.name.toLowerCase().includes(searchTerm.toLowerCase())
+	const handleSort = (column: keyof City) => {
+		if (sortColumn === column) {
+			// Toggle sort direction
+			setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+		} else {
+			setSortColumn(column);
+			setSortDirection("asc");
+		}
+	};
+
+	const sortedCities = [...cities].sort((a, b) => {
+		if (!sortColumn) return 0;
+		const aValue = a[sortColumn];
+		const bValue = b[sortColumn];
+
+		if (aValue < bValue) return sortDirection === "asc" ? -1 : 1;
+		if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;
+		return 0;
+	});
+
+	const filteredCities = sortedCities.filter((city) =>
+		city.name.toLowerCase().includes(searchTerm.toLowerCase()),
 	);
 
 	const totalPages = Math.ceil(filteredCities.length / ITEMS_PER_PAGE);
@@ -168,19 +180,25 @@ const ManageCities = () => {
 		return <div className="text-center text-red-500 mt-8">{error}</div>;
 	}
 
+	const getSortIndicator = (column: keyof City) => {
+		if (sortColumn === column) {
+			return sortDirection === "asc" ? " ▲" : " ▼";
+		}
+		return "";
+	};
+
 	return (
 		<div>
 			<h1 className="text-2xl mb-4">Manage Cities</h1>
-			
+
 			{/* Add New City Button */}
 			<div className="flex justify-between items-center mb-4">
 				<button
 					onClick={openAddModal}
-					className="bg-primary text-white px-4 py-2 rounded hover:bg-primary-dark transition-colors"
-				>
+					className="bg-primary text-white px-4 py-2 rounded hover:bg-primary-dark transition-colors">
 					Add New City
 				</button>
-				
+
 				<input
 					type="text"
 					placeholder="Search cities..."
@@ -189,15 +207,31 @@ const ManageCities = () => {
 					className="w-1/3 px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-primary"
 				/>
 			</div>
-			
+
 			<div className="overflow-x-auto">
 				<table className="min-w-full bg-white shadow-md rounded-lg overflow-hidden">
 					<thead className="bg-primary text-white">
 						<tr>
-							<th className="py-3 px-6 text-left">ID</th>
-							<th className="py-3 px-6 text-left">Name</th>
-							<th className="py-3 px-6 text-left">Country</th>
-							<th className="py-3 px-6 text-left">Description</th>
+							<th
+								className="py-3 px-6 text-left cursor-pointer"
+								onClick={() => handleSort("id")}>
+								ID{getSortIndicator("id")}
+							</th>
+							<th
+								className="py-3 px-6 text-left cursor-pointer"
+								onClick={() => handleSort("name")}>
+								Name{getSortIndicator("name")}
+							</th>
+							<th
+								className="py-3 px-6 text-left cursor-pointer"
+								onClick={() => handleSort("country")}>
+								Country{getSortIndicator("country")}
+							</th>
+							<th
+								className="py-3 px-6 text-left cursor-pointer"
+								onClick={() => handleSort("description")}>
+								Description{getSortIndicator("description")}
+							</th>
 							<th className="py-3 px-6 text-left">Actions</th>
 						</tr>
 					</thead>
@@ -205,8 +239,7 @@ const ManageCities = () => {
 						{paginatedCities.map((city) => (
 							<tr
 								key={city.id}
-								className="border-b hover:bg-gray-50"
-							>
+								className="border-b hover:bg-gray-50">
 								<td className="py-4 px-6">{city.id}</td>
 								<td className="py-4 px-6">{city.name}</td>
 								<td className="py-4 px-6">{city.country}</td>
@@ -214,8 +247,7 @@ const ManageCities = () => {
 								<td className="py-4 px-6">
 									<button
 										onClick={() => openEditModal(city)}
-										className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition-colors"
-									>
+										className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition-colors">
 										Edit
 									</button>
 								</td>
@@ -224,7 +256,7 @@ const ManageCities = () => {
 					</tbody>
 				</table>
 			</div>
-			
+
 			{/* Pagination Controls */}
 			{totalPages > 1 && (
 				<div className="flex justify-center mt-4">
@@ -238,8 +270,7 @@ const ManageCities = () => {
 										currentPage === 1
 											? "text-gray-400 cursor-not-allowed"
 											: "text-primary hover:bg-primary-light"
-									} border border-gray-300 rounded-l-lg`}
-								>
+									} border border-gray-300 rounded-l-lg`}>
 									Previous
 								</button>
 							</li>
@@ -249,11 +280,10 @@ const ManageCities = () => {
 										<button
 											onClick={() => handlePageChange(page)}
 											className={`px-3 py-2 leading-tight ${
-												currentPage === page 
-													? "text-white bg-primary" 
+												currentPage === page
+													? "text-white bg-primary"
 													: "text-primary hover:bg-primary-light"
-											} border border-gray-300`}
-										>
+											} border border-gray-300`}>
 											{page}
 										</button>
 									</li>
@@ -267,8 +297,7 @@ const ManageCities = () => {
 										currentPage === totalPages
 											? "text-gray-400 cursor-not-allowed"
 											: "text-primary hover:bg-primary-light"
-									} border border-gray-300 rounded-r-lg`}
-								>
+									} border border-gray-300 rounded-r-lg`}>
 									Next
 								</button>
 							</li>
@@ -313,21 +342,18 @@ const ManageCities = () => {
 									onChange={handleEditChange}
 									className="w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-primary"
 									rows={4}
-									required
-								></textarea>
+									required></textarea>
 							</div>
 							<div className="flex justify-end">
 								<button
 									type="button"
 									onClick={closeEditModal}
-									className="bg-gray-500 text-white px-4 py-2 rounded mr-2 hover:bg-gray-600 transition-colors"
-								>
+									className="bg-gray-500 text-white px-4 py-2 rounded mr-2 hover:bg-gray-600 transition-colors">
 									Cancel
 								</button>
 								<button
 									type="submit"
-									className="bg-primary text-white px-4 py-2 rounded hover:bg-primary-dark transition-colors"
-								>
+									className="bg-primary text-white px-4 py-2 rounded hover:bg-primary-dark transition-colors">
 									Save Changes
 								</button>
 							</div>
@@ -372,21 +398,18 @@ const ManageCities = () => {
 									onChange={handleAddChange}
 									className="w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-primary"
 									rows={4}
-									required
-								></textarea>
+									required></textarea>
 							</div>
 							<div className="flex justify-end">
 								<button
 									type="button"
 									onClick={closeAddModal}
-									className="bg-gray-500 text-white px-4 py-2 rounded mr-2 hover:bg-gray-600 transition-colors"
-								>
+									className="bg-gray-500 text-white px-4 py-2 rounded mr-2 hover:bg-gray-600 transition-colors">
 									Cancel
 								</button>
 								<button
 									type="submit"
-									className="bg-primary text-white px-4 py-2 rounded hover:bg-primary-dark transition-colors"
-								>
+									className="bg-primary text-white px-4 py-2 rounded hover:bg-primary-dark transition-colors">
 									Add City
 								</button>
 							</div>

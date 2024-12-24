@@ -10,12 +10,16 @@ interface User {
 	role: string;
 }
 
+type SortDirection = "asc" | "desc";
+
 const ManageUsers = () => {
 	const [users, setUsers] = useState<User[]>([]);
 	const [loading, setLoading] = useState<boolean>(false);
 	const [error, setError] = useState<string>("");
 	const [currentPage, setCurrentPage] = useState<number>(1);
 	const [searchTerm, setSearchTerm] = useState<string>("");
+	const [sortColumn, setSortColumn] = useState<keyof User | null>(null);
+	const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
 	const ITEMS_PER_PAGE = 10;
 
@@ -59,7 +63,27 @@ const ManageUsers = () => {
 		setCurrentPage(1); // Reset to first page on new search
 	};
 
-	const filteredUsers = users.filter((user) =>
+	const handleSort = (column: keyof User) => {
+		if (sortColumn === column) {
+			// Toggle sort direction
+			setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+		} else {
+			setSortColumn(column);
+			setSortDirection("asc");
+		}
+	};
+
+	const sortedUsers = [...users].sort((a, b) => {
+		if (!sortColumn) return 0;
+		const aValue = a[sortColumn];
+		const bValue = b[sortColumn];
+
+		if (aValue < bValue) return sortDirection === "asc" ? -1 : 1;
+		if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;
+		return 0;
+	});
+
+	const filteredUsers = sortedUsers.filter((user) =>
 		user.username.toLowerCase().includes(searchTerm.toLowerCase()),
 	);
 
@@ -81,6 +105,13 @@ const ManageUsers = () => {
 		return <div className="text-center text-red-500 mt-8">{error}</div>;
 	}
 
+	const getSortIndicator = (column: keyof User) => {
+		if (sortColumn === column) {
+			return sortDirection === "asc" ? " ▲" : " ▼";
+		}
+		return "";
+	};
+
 	return (
 		<div>
 			<h1 className="text-2xl mb-4">Manage Users</h1>
@@ -97,11 +128,31 @@ const ManageUsers = () => {
 				<table className="min-w-full bg-white shadow-md rounded-lg overflow-hidden">
 					<thead className="bg-primary text-white">
 						<tr>
-							<th className="py-3 px-6 text-left">ID</th>
-							<th className="py-3 px-6 text-left">Username</th>
-							<th className="py-3 px-6 text-left">Full Name</th>
-							<th className="py-3 px-6 text-left">Email</th>
-							<th className="py-3 px-6 text-left">Role</th>
+							<th
+								className="py-3 px-6 text-left cursor-pointer"
+								onClick={() => handleSort("id")}>
+								ID{getSortIndicator("id")}
+							</th>
+							<th
+								className="py-3 px-6 text-left cursor-pointer"
+								onClick={() => handleSort("username")}>
+								Username{getSortIndicator("username")}
+							</th>
+							<th
+								className="py-3 px-6 text-left cursor-pointer"
+								onClick={() => handleSort("fullName")}>
+								Full Name{getSortIndicator("fullName")}
+							</th>
+							<th
+								className="py-3 px-6 text-left cursor-pointer"
+								onClick={() => handleSort("email")}>
+								Email{getSortIndicator("email")}
+							</th>
+							<th
+								className="py-3 px-6 text-left cursor-pointer"
+								onClick={() => handleSort("role")}>
+								Role{getSortIndicator("role")}
+							</th>
 						</tr>
 					</thead>
 					<tbody>
