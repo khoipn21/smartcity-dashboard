@@ -4,10 +4,15 @@ import { useAuthStore } from "@store/authStore";
 import { FaTreeCity } from "react-icons/fa6";
 import { BiSolidCategoryAlt } from "react-icons/bi";
 import { CiLogout } from "react-icons/ci";
+import { RiLandscapeFill } from "react-icons/ri";
+import { FaUser } from "react-icons/fa";
 
 import ManageCities from "@pages/admin/ManageCities";
 import ManageServiceCategories from "@pages/admin/ManageServiceCategories";
 import ManageUsers from "@pages/admin/ManageUsers";
+import ManageServices from "@pages/admin/ManageServices";
+import ManageServicesByCity from "./admin/ManageServicesByCity";
+import ManageAllServices from "./admin/ManageAllServices";
 
 const Dashboard = () => {
 	const setToken = useAuthStore((state) => state.setToken);
@@ -51,22 +56,26 @@ const Dashboard = () => {
 							<Link
 								to="/admin/users"
 								className="flex items-center gap-2 px-4 py-2 rounded hover:bg-primary-light transition-colors">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									className="w-4 h-4"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor">
-									<path
-										strokeLinecap="round"
-										strokeLinejoin="round"
-										strokeWidth={2}
-										d="M17 20h5V4H2v16h5m10-8a4 4 0 11-8 0 4 4 0 018 0z"
-									/>
-								</svg>
+								<FaUser className="w-4 h-4" />
 								Manage Users
 							</Link>
 						</li>
+						<li className="mb-4">
+							<Link
+								to="/admin/services"
+								className="flex items-center gap-2 px-4 py-2 rounded hover:bg-primary-light transition-colors">
+								<RiLandscapeFill className="w-4 h-4" />
+								<span>Manage Services</span>
+							</Link>
+						</li>
+						{/* <li className="mb-4">
+							<Link
+								to="/admin/all-services"
+								className="flex items-center gap-2 px-4 py-2 rounded hover:bg-primary-light transition-colors">
+								<FaTools className="w-4 h-4" />
+								<span>Manage All Services</span>
+							</Link>
+						</li> */}
 					</ul>
 				)}
 				<ul className="mt-8">
@@ -93,6 +102,18 @@ const Dashboard = () => {
 					<Route
 						path="users"
 						element={<ManageUsers />}
+					/>
+					<Route
+						path="services"
+						element={<ManageServices />}
+					/>
+					<Route
+						path="services/:cityId"
+						element={<ManageServicesByCity />}
+					/>
+					<Route
+						path="all-services"
+						element={<ManageAllServices />}
 					/>
 				</Routes>
 			</main>
