@@ -41,11 +41,11 @@ const ManageServices = () => {
 
 	return (
 		<div className="p-6">
-			<div className="flex justify-between items-center">
+			<div className="flex justify-between items-center mb-4">
 				<h1 className="text-2xl font-bold mb-4">Manage Services by City</h1>
 				<Link
 					to="/admin/all-services"
-					className="flex items-center gap-2 px-4 py-2 rounded hover:bg-primary-light transition-colors bg-primary-dark text-white">
+					className="flex items-center gap-2 px-4 py-2 rounded hover:bg-primary-dark transition-colors bg-primary text-white">
 					<span>Manage All Services</span>
 				</Link>
 			</div>
