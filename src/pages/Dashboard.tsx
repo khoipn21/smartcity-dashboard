@@ -34,7 +34,7 @@ const Dashboard = () => {
 
 	return (
 		<div className="flex flex-col md:flex-row min-h-screen">
-			<nav className="w-full md:w-64 bg-primary-dark text-white p-6">
+			<nav className="w-full md:w-64 bg-primary-dark text-white p-6 md:sticky md:top-0 md:h-screen overflow-y-auto">
 				<h2 className="text-4xl mb-4 font-black font-merienda">SMART CITY</h2>
 				{role === "ROLE_ADMIN" && (
 					<ul>
