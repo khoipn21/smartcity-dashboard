@@ -6,6 +6,7 @@ import { BiSolidCategoryAlt } from "react-icons/bi";
 import { CiLogout } from "react-icons/ci";
 import { RiLandscapeFill } from "react-icons/ri";
 import { FaUser } from "react-icons/fa";
+import { FaChartLine } from "react-icons/fa";
 
 import ManageCities from "@pages/admin/ManageCities";
 import ManageServiceCategories from "@pages/admin/ManageServiceCategories";
@@ -13,6 +14,7 @@ import ManageUsers from "@pages/admin/ManageUsers";
 import ManageServices from "@pages/admin/ManageServices";
 import ManageServicesByCity from "./admin/ManageServicesByCity";
 import ManageAllServices from "./admin/ManageAllServices";
+import Statistics from "./admin/Statistics";
 
 const Dashboard = () => {
 	const setToken = useAuthStore((state) => state.setToken);
@@ -76,6 +78,14 @@ const Dashboard = () => {
 								<span>Manage All Services</span>
 							</Link>
 						</li> */}
+						<li className="mb-4">
+							<Link
+								to="/admin/statistics"
+								className="flex items-center gap-2 px-4 py-2 rounded hover:bg-primary-light transition-colors">
+								<FaChartLine className="w-4 h-4" />
+								<span>Statistics</span>
+							</Link>
+						</li>
 					</ul>
 				)}
 				<ul className="mt-8">
@@ -114,6 +124,10 @@ const Dashboard = () => {
 					<Route
 						path="all-services"
 						element={<ManageAllServices />}
+					/>
+					<Route
+						path="statistics"
+						element={<Statistics />}
 					/>
 				</Routes>
 			</main>

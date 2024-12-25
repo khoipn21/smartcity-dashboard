@@ -16,6 +16,7 @@ interface Service {
 	imageUrls: string[];
 	categoryName: string;
 	cityName: string;
+	rating?: number;
 }
 
 interface ServiceCategory {
@@ -32,7 +33,7 @@ interface City {
 }
 
 interface SortState {
-	column: keyof Service | null;
+	column: keyof Service | "rating" | null;
 	direction: "asc" | "desc";
 }
 
@@ -79,6 +80,9 @@ const ManageAllServices = () => {
 		cityId: 0,
 	});
 	const [addSelectedImages, setAddSelectedImages] = useState<File[]>([]);
+	const [averageRatings, setAverageRatings] = useState<{
+		[serviceId: number]: number;
+	}>({});
 
 	useEffect(() => {
 		fetchAllServices();
@@ -92,6 +96,8 @@ const ManageAllServices = () => {
 			const response = await axiosInstance.get("/api/allservices");
 			setServices(response.data);
 			setError("");
+
+			fetchAverageRatings(response.data);
 		} catch (err) {
 			console.error("Error fetching all services:", err);
 			setError("Failed to load services.");
@@ -119,6 +125,39 @@ const ManageAllServices = () => {
 			console.error("Error fetching cities:", err);
 			toast.error("Failed to load cities.");
 		}
+	};
+
+	const fetchAverageRatings = async (services: Service[]) => {
+		const ratings: { [serviceId: number]: number } = {};
+
+		await Promise.all(
+			services.map(async (service) => {
+				try {
+					const response = await axiosInstance.get(
+						`/api/services/${service.id}/reviews`,
+					);
+					const reviews = response.data;
+					if (reviews.length > 0) {
+						const total = reviews.reduce(
+							(acc: number, review: { rating: number }) => acc + review.rating,
+							0,
+						);
+						const average = total / reviews.length;
+						ratings[service.id] = parseFloat(average.toFixed(2));
+					} else {
+						ratings[service.id] = 0;
+					}
+				} catch (err) {
+					console.error(
+						`Error fetching reviews for service ${service.id}:`,
+						err,
+					);
+					ratings[service.id] = 0;
+				}
+			}),
+		);
+
+		setAverageRatings(ratings);
 	};
 
 	const handleEditChange = (
@@ -282,22 +321,47 @@ const ManageAllServices = () => {
 		servicesByCity[service.cityName].push(service);
 	});
 
+	const getSortedServices = (services: Service[], sortState: SortState) => {
+		if (!sortState.column) return services;
+
+		return [...services].sort((a, b) => {
+			if (sortState.column === "categoryName") {
+				const aValue = a.categoryName.toLowerCase();
+				const bValue = b.categoryName.toLowerCase();
+				return sortState.direction === "asc"
+					? aValue.localeCompare(bValue)
+					: bValue.localeCompare(aValue);
+			}
+
+			// Handle rating sorting
+			if (sortState.column === "rating") {
+				const aRating = averageRatings[a.id] || 0;
+				const bRating = averageRatings[b.id] || 0;
+				return sortState.direction === "asc"
+					? aRating - bRating
+					: bRating - aRating;
+			}
+
+			// Original sorting logic for other columns
+			const aValue = a[sortState.column as keyof Service];
+			const bValue = b[sortState.column as keyof Service];
+			if (aValue !== undefined && bValue !== undefined && aValue < bValue)
+				return sortState.direction === "asc" ? -1 : 1;
+			if (aValue !== undefined && bValue !== undefined && aValue > bValue)
+				return sortState.direction === "asc" ? 1 : -1;
+			return 0;
+		});
+	};
+
 	const filteredAndSortedServicesByCity: { [key: string]: Service[] } = {};
 	Object.keys(servicesByCity).forEach((cityName) => {
-		const cityServices = servicesByCity[cityName].filter((service) =>
+		let cityServices = servicesByCity[cityName].filter((service) =>
 			service.name.toLowerCase().includes(searchTerm.toLowerCase()),
 		);
 
 		const sortState = sortStates[cityName];
 		if (sortState?.column) {
-			cityServices.sort((a, b) => {
-				const aValue = a[sortState.column!];
-				const bValue = b[sortState.column!];
-
-				if (aValue < bValue) return sortState.direction === "asc" ? -1 : 1;
-				if (aValue > bValue) return sortState.direction === "asc" ? 1 : -1;
-				return 0;
-			});
+			cityServices = getSortedServices(cityServices, sortState);
 		}
 
 		filteredAndSortedServicesByCity[cityName] = cityServices;
@@ -481,8 +545,15 @@ const ManageAllServices = () => {
 												Operating Hours
 												{getSortIndicator(cityName, "operatingHours")}
 											</th>
-											<th className="py-3 px-6 w-40 text-center whitespace-nowrap">
-												Category
+											<th
+												className="py-3 px-6 cursor-pointer w-40 text-center whitespace-nowrap"
+												onClick={() => handleSort(cityName, "categoryName")}>
+												Category{getSortIndicator(cityName, "categoryName")}
+											</th>
+											<th
+												className="py-3 px-6 cursor-pointer w-32 text-center whitespace-nowrap"
+												onClick={() => handleSort(cityName, "rating")}>
+												Rating{getSortIndicator(cityName, "rating")}
 											</th>
 											<th className="py-3 px-6 w-32 text-center whitespace-nowrap">
 												Actions
@@ -496,13 +567,15 @@ const ManageAllServices = () => {
 													key={service.id}
 													className="border-b hover:bg-gray-50">
 													<td className="py-4 px-6 text-center">
-														{service.id}
+														<div className="line-clamp-3">{service.id}</div>
 													</td>
 													<td className="py-4 px-6 text-center">
-														{service.name}
+														<div className="line-clamp-3">{service.name}</div>
 													</td>
 													<td className="py-4 px-6 text-center">
-														{service.description}
+														<div className="line-clamp-3">
+															{service.description}
+														</div>
 													</td>
 													<td className="py-4 px-6 text-center">
 														{service.imageUrls &&
@@ -519,16 +592,35 @@ const ManageAllServices = () => {
 														)}
 													</td>
 													<td className="py-4 px-6 text-center">
-														{service.address}
+														<div className="line-clamp-3">
+															{service.address}
+														</div>
 													</td>
 													<td className="py-4 px-6 text-center">
-														{service.contactInfo}
+														<div className="line-clamp-3">
+															{service.contactInfo}
+														</div>
 													</td>
 													<td className="py-4 px-6 text-center">
-														{service.operatingHours}
+														<div className="line-clamp-3">
+															{service.operatingHours}
+														</div>
 													</td>
 													<td className="py-4 px-6 text-center">
-														{service.categoryName}
+														<div className="line-clamp-3">
+															{service.categoryName}
+														</div>
+													</td>
+													<td className="py-4 px-6 text-center">
+														<div className="line-clamp-3">
+															{averageRatings[service.id] !== undefined ? (
+																<span>
+																	{averageRatings[service.id].toFixed(1)} / 5
+																</span>
+															) : (
+																<span>Loading...</span>
+															)}
+														</div>
 													</td>
 													<td className="py-4 px-6 text-center">
 														<div className="flex justify-center">

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import axiosInstance from "@api/axiosInstance";
 import { toast } from "react-toastify";
 import { useParams, Link } from "react-router-dom";
@@ -14,6 +14,7 @@ interface Service {
 	categoryId: number;
 	cityId: number;
 	imageUrls: string[];
+	rating?: number;
 }
 
 interface City {
@@ -27,6 +28,8 @@ interface ServiceCategory {
 	name: string;
 	description?: string;
 }
+
+type SortColumn = keyof Service | "rating";
 
 const ManageServicesByCity = () => {
 	const { cityId } = useParams<{ cityId: string }>();
@@ -61,8 +64,11 @@ const ManageServicesByCity = () => {
 	const [selectedImages, setSelectedImages] = useState<File[]>([]);
 	const [imagesToDelete, setImagesToDelete] = useState<string[]>([]);
 	const [searchTerm, setSearchTerm] = useState<string>("");
-	const [sortColumn, setSortColumn] = useState<keyof Service | null>(null);
+	const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
 	const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+	const [averageRatings, setAverageRatings] = useState<{
+		[serviceId: number]: number;
+	}>({});
 
 	const fetchCity = async () => {
 		try {
@@ -83,6 +89,8 @@ const ManageServicesByCity = () => {
 			);
 			setServices(response.data);
 			setError("");
+
+			fetchAverageRatings(response.data);
 		} catch (err) {
 			console.error("Error fetching services:", err);
 			setError("Failed to load services.");
@@ -100,6 +108,39 @@ const ManageServicesByCity = () => {
 			console.error("Error fetching service categories:", err);
 			toast.error("Failed to load service categories.");
 		}
+	};
+
+	const fetchAverageRatings = async (services: Service[]) => {
+		const ratings: { [serviceId: number]: number } = {};
+
+		await Promise.all(
+			services.map(async (service) => {
+				try {
+					const response = await axiosInstance.get(
+						`/api/services/${service.id}/reviews`,
+					);
+					const reviews = response.data;
+					if (reviews.length > 0) {
+						const total = reviews.reduce(
+							(acc: number, review: { rating: number }) => acc + review.rating,
+							0,
+						);
+						const average = total / reviews.length;
+						ratings[service.id] = parseFloat(average.toFixed(1));
+					} else {
+						ratings[service.id] = 0;
+					}
+				} catch (err) {
+					console.error(
+						`Error fetching reviews for service ${service.id}:`,
+						err,
+					);
+					ratings[service.id] = 0;
+				}
+			}),
+		);
+
+		setAverageRatings(ratings);
 	};
 
 	useEffect(() => {
@@ -296,7 +337,7 @@ const ManageServicesByCity = () => {
 		setSearchTerm(e.target.value);
 	};
 
-	const handleSort = (column: keyof Service) => {
+	const handleSort = (column: SortColumn) => {
 		if (sortColumn === column) {
 			setSortDirection(sortDirection === "asc" ? "desc" : "asc");
 		} else {
@@ -305,26 +346,53 @@ const ManageServicesByCity = () => {
 		}
 	};
 
-	const getSortIndicator = (column: keyof Service) => {
+	const getSortIndicator = (column: SortColumn) => {
 		if (sortColumn === column) {
 			return sortDirection === "asc" ? " ▲" : " ▼";
 		}
 		return "";
 	};
 
-	const sortedServices = [...services].sort((a, b) => {
-		if (!sortColumn) return 0;
-		const aValue = a[sortColumn];
-		const bValue = b[sortColumn];
+	const getSortedServices = (
+		services: Service[],
+		column: SortColumn,
+		direction: "asc" | "desc",
+	) => {
+		return [...services].sort((a, b) => {
+			if (column === "rating") {
+				const aRating = averageRatings[a.id] || 0;
+				const bRating = averageRatings[b.id] || 0;
+				return direction === "asc" ? aRating - bRating : bRating - aRating;
+			}
 
-		if (aValue < bValue) return sortDirection === "asc" ? -1 : 1;
-		if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;
-		return 0;
-	});
+			const aValue = a[column as keyof Service];
+			const bValue = b[column as keyof Service];
 
-	const filteredServices = sortedServices.filter((service) =>
-		service.name.toLowerCase().includes(searchTerm.toLowerCase()),
-	);
+			if (typeof aValue === "string" && typeof bValue === "string") {
+				return direction === "asc"
+					? aValue.localeCompare(bValue)
+					: bValue.localeCompare(aValue);
+			}
+
+			if (aValue !== undefined && bValue !== undefined && aValue < bValue)
+				return direction === "asc" ? -1 : 1;
+			if (aValue !== undefined && bValue !== undefined && aValue > bValue)
+				return direction === "asc" ? 1 : -1;
+			return 0;
+		});
+	};
+
+	const filteredServices = useMemo(() => {
+		let filtered = services.filter((service) =>
+			service.name.toLowerCase().includes(searchTerm.toLowerCase()),
+		);
+
+		if (sortColumn) {
+			filtered = getSortedServices(filtered, sortColumn, sortDirection);
+		}
+
+		return filtered;
+	}, [services, searchTerm, sortColumn, sortDirection, averageRatings]);
 
 	const handlePreviewImages = () => {
 		return selectedImages.map((file) => {
@@ -426,6 +494,11 @@ const ManageServicesByCity = () => {
 										onClick={() => handleSort("operatingHours")}>
 										Operating Hours{getSortIndicator("operatingHours")}
 									</th>
+									<th
+										className="py-3 px-6 cursor-pointer w-40 text-center whitespace-nowrap"
+										onClick={() => handleSort("rating")}>
+										Rating{getSortIndicator("rating")}
+									</th>
 									<th className="py-3 px-6 w-40 text-center whitespace-nowrap">
 										Category
 									</th>
@@ -439,9 +512,15 @@ const ManageServicesByCity = () => {
 									<tr
 										key={service.id}
 										className="border-b hover:bg-gray-50">
-										<td className="py-4 px-6">{service.id}</td>
-										<td className="py-4 px-6">{service.name}</td>
-										<td className="py-4 px-6">{service.description}</td>
+										<td className="py-4 px-6">
+											<div className="line-clamp-3">{service.id}</div>
+										</td>
+										<td className="py-4 px-6">
+											<div className="line-clamp-3">{service.name}</div>
+										</td>
+										<td className="py-4 px-6">
+											<div className="line-clamp-3">{service.description}</div>
+										</td>
 										<td className="py-4 px-6">
 											{service.imageUrls && service.imageUrls.length > 0 ? (
 												<img
@@ -455,11 +534,32 @@ const ManageServicesByCity = () => {
 												<span>None</span>
 											)}
 										</td>
-										<td className="py-4 px-6">{service.address}</td>
-										<td className="py-4 px-6">{service.contactInfo}</td>
-										<td className="py-4 px-6">{service.operatingHours}</td>
 										<td className="py-4 px-6">
-											{getCategoryName(service.categoryId)}
+											<div className="line-clamp-3">{service.address}</div>
+										</td>
+										<td className="py-4 px-6">
+											<div className="line-clamp-3">{service.contactInfo}</div>
+										</td>
+										<td className="py-4 px-6">
+											<div className="line-clamp-3">
+												{service.operatingHours}
+											</div>
+										</td>
+										<td className="py-4 px-6 text-center">
+											<div className="line-clamp-3">
+												{averageRatings[service.id] !== undefined ? (
+													<span>
+														{averageRatings[service.id].toFixed(1)} / 5
+													</span>
+												) : (
+													<span>Loading...</span>
+												)}
+											</div>
+										</td>
+										<td className="py-4 px-6">
+											<div className="line-clamp-3">
+												{getCategoryName(service.categoryId)}
+											</div>
 										</td>
 										<td className="py-4 px-6">
 											<div className="flex justify-center">
