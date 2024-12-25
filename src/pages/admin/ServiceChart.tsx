@@ -86,7 +86,7 @@ const ServiceChart: React.FC = () => {
 
 		const visits = visitData.listVisit.map((v) => parseISO(v.visitDate));
 
-		let grouped: { [key: string]: number } = {};
+		const grouped: { [key: string]: number } = {};
 
 		visits.forEach((date) => {
 			let key = "";

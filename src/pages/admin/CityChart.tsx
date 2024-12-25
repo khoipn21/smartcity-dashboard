@@ -46,6 +46,11 @@ interface City {
 	country: string;
 }
 
+interface Service {
+	id: number;
+	name: string;
+}
+
 const CityChart: React.FC = () => {
 	const [cities, setCities] = useState<City[]>([]);
 	const [selectedCity, setSelectedCity] = useState<number | null>(null);
@@ -80,7 +85,7 @@ const CityChart: React.FC = () => {
 					const services = response.data;
 
 					// Fetch visits for each service
-					const visitPromises = services.map(async (service: any) => {
+					const visitPromises = services.map(async (service: Service) => {
 						try {
 							const res = await axiosInstance.get<VisitServiceResponse>(
 								`/api/services/${service.id}/visits`,
@@ -119,7 +124,7 @@ const CityChart: React.FC = () => {
 
 		const visits = visitData[0].listVisit.map((v) => parseISO(v.visitDate));
 
-		let grouped: { [key: string]: number } = {};
+		const grouped: { [key: string]: number } = {};
 
 		visits.forEach((date) => {
 			let key = "";
